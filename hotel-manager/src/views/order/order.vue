@@ -118,9 +118,7 @@
     return{
       currentPage: 1,
       pagesize: 10,
-      list: [{},{},{},{}],
-      visible2: false,
-      loading: null,
+      list: [],
       listLoading: false,
       multipleSelection: null,
     }
@@ -136,14 +134,17 @@
       this.currentPage = val;
     },
     fetchData(){
+      this.listLoading = true
       getAllOrder().then(response => {
-          this.list = response.data;
-          this.list.reverse();
+          const data = response.data || [];
+          this.list = data.slice().reverse();
       }).catch(err => {
         this.$notify.error({
           title: '错误',
           message: err.toString()
         });
+      }).finally(() => {
+        this.listLoading = false
       })
     },
     navigateTo(val){
@@ -153,7 +154,7 @@
     },
     handleDel(row){
       row.visible2 = false
-      row.loading = true
+      this.$set(row, 'loading', true)
       delOrder(row.orderId).then(response => {
           const res = response;
         if (res.code === 1000) {
@@ -161,8 +162,6 @@
             message: '删除成功！',
             type: 'success'
           })
-          this.list = null
-          row.loading = false
           this.fetchData()
         } else {
           this.$message({
@@ -171,11 +170,10 @@
           })
         }
       }).catch(error => {
-        row.loading = false
         console.log(error)
+      }).finally(() => {
+        this.$set(row, 'loading', false)
       })
-      row.loading = false
-      this.fetchData()
     },
     handleEdit(index,row){},
     toggleSelection(rows) {
@@ -187,7 +185,7 @@
         this.$refs.multipleTable.clearSelection()
       }
     },
-    handleSelectionChange(){
+    handleSelectionChange(val){
       this.multipleSelection = val
     },
   },

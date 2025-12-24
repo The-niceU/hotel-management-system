@@ -80,8 +80,7 @@
 
 <script>
   import {getOrderById, cancelOrder, payOrder} from "@/api/order";
-  import Cookie from 'js-cookie'
-  import { getUserInfo,userLogin } from "@/api/user";
+  import { getUserInfo } from "@/api/user";
 
   export default {
         name: "OrderDetail",
@@ -91,7 +90,6 @@
             openPass: false,
             openCancel: false,
             orderId: null,
-            orderStatus: 1,
             payLoading : false,
             cancelLoading: false,
             order: {
@@ -99,6 +97,7 @@
             },
             userInfo: {
               userId : null,
+              username: null,
             },
           }
       },
@@ -107,27 +106,51 @@
       },
       methods:{
           goBack(){
-            Cookie.remove("order_id")
             this.$router.back()
           },
           fetchData(){
-            this.orderId = Cookie.get("order_id")
-            if (this.orderId == null){
+            const id = this.resolveOrderId()
+            if (id == null){
+              this.$toast.error('未找到对应的订单')
               this.$router.back()
               return
             }
-            getOrderById(this.orderId).then(res => {
-              this.order = res.data;
-            }).catch(err => {
-              this.$toast.error(err)
-            })
-            const userId = Cookie.get("user_id")
-            getUserInfo().then(res => {
-              this.userInfo = res.data;
-            }).catch(err => {
-              this.$toast.error(err)
-            })
+            this.orderId = id
+            this.loadOrder()
+            this.loadUserInfo()
           },
+        loadOrder(){
+          if (!this.orderId){
+            return
+          }
+          getOrderById(this.orderId).then(res => {
+            const data = res.data
+            if (!data){
+              this.$toast.error('订单不存在或已被删除')
+              return
+            }
+            this.order = data
+          }).catch(err => {
+            this.$toast.error(err.toString())
+          })
+        },
+        loadUserInfo(){
+          getUserInfo().then(res => {
+            this.userInfo = res.data || {}
+          }).catch(err => {
+            this.$toast.error(err.toString())
+          })
+        },
+        resolveOrderId(){
+          const fromParams = this.$route.params && this.$route.params.orderId
+          const fromQuery = this.$route.query && this.$route.query.orderId
+          const candidate = fromParams || fromQuery
+          if (!candidate){
+            return null
+          }
+          const parsed = parseInt(candidate, 10)
+          return Number.isNaN(parsed) ? null : parsed
+        },
         getStaColor(val){
           var status = ''
           switch (val) {
@@ -162,36 +185,46 @@
           return year + '-' + month + '-' + day + '- ' + hour + ':' + minutes + ':' + seconds
         },
         pay(){
+            if (!this.password) {
+              this.$toast.warning('请输入支付密码')
+              return
+            }
+            const username = this.userInfo && this.userInfo.username
+            if (!username) {
+              this.$toast.error('请重新登录后再试')
+              return
+            }
             this.payLoading = true
-            const username = Cookie.get("username")
           payOrder(this.orderId,username,this.password).then(res => {
                 if (res.code === 1000){
-                  this.$toast.success("支付成功！")
+                  this.$toast.success(res.message || "支付成功！")
                   this.openPass = false
-                  this.$router.go(0)
+                  this.password = null
+                  this.loadOrder()
                 }else {
-                  this.$toast.error("支付失败！")
+                  this.$toast.error(res.message || "支付失败！")
                 }
               }).catch(err => {
-                this.$toast.error(err)
+                this.$toast.error(err.toString())
+              }).finally(() => {
+                this.payLoading = false
               })
-          this.payLoading = false
         },
         cancelOrder(){
             this.cancelLoading = true
-            cancelOrder(this.order.orderId).then(res => {
-              if (res === 1){
-                this.$toast.success("订单取消成功！")
-                this.$router.go(0)
+            cancelOrder(this.orderId).then(res => {
+              if (res.code === 1000){
+                this.$toast.success(res.message || "订单取消成功！")
+                this.openCancel = false
+                this.loadOrder()
               } else {
-                this.$toast.info("订单取消失败，请稍后再试！")
+                this.$toast.info(res.message || "订单取消失败，请稍后再试！")
               }
-              this.cancelLoading = false
             }).catch(err => {
               this.$toast.error("取消失败，原因："+ err.toString())
+            }).finally(() => {
               this.cancelLoading = false
             })
-
         }
       }
     }

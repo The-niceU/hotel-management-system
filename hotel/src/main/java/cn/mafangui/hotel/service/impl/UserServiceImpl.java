@@ -48,8 +48,25 @@ public class UserServiceImpl implements UserService {
 
     @Override
     public User selectByUsernameAndPassword(String username, String password) {
-        String pass = MD5Utils.MD5Encode(password);
-        return userMapper.selectByUsernameAndPassword(username,pass);
+        User user = userMapper.selectByUsername(username);
+        if (user == null) {
+            return null;
+        }
+        String encodedPassword = MD5Utils.MD5Encode(password);
+        if (encodedPassword.equalsIgnoreCase(user.getPassword())) {
+            return user;
+        }
+        // Legacy seed data stored plaintext passwords; hash them on first successful
+        // login.
+        if (password.equals(user.getPassword())) {
+            User update = new User();
+            update.setUserId(user.getUserId());
+            update.setPassword(encodedPassword);
+            userMapper.updateByPrimaryKeySelective(update);
+            user.setPassword(encodedPassword);
+            return user;
+        }
+        return null;
     }
 
     @Override

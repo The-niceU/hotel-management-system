@@ -91,7 +91,7 @@
               this.$toast.warning("请输入必填项！")
               return
             }else {
-              this.login()
+              this.registerUser()
             }
           });
         },
@@ -109,18 +109,23 @@
             idcard: '',
           };
         },
-        login() {
-          // this.btnLoading = true
-          userRegister(this.validateForm).then(res => {
-            if (res === 1){
-              this.$toast.success("注册成功")
-              this.navigateTo('/login')
-            }else if (res === 0) {
-              this.$toast.message("请检查信息是否填写正确")
-            }
-          }).catch(err => {
-            this.$toast.message("注册失败：" + err.toString())
-          })
+        registerUser() {
+          this.btnLoading = true
+          userRegister(this.validateForm)
+            .then(res => {
+              if (res && res.code === 1000) {
+                this.$toast.success("注册成功")
+                this.navigateTo('/login')
+              } else if (res && res.message) {
+                this.$toast.warning(res.message)
+              }
+            })
+            .catch(err => {
+              this.$toast.error("注册失败：" + (err && err.message ? err.message : err))
+            })
+            .then(() => {
+              this.btnLoading = false
+            })
         },
       }
     }

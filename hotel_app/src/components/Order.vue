@@ -49,17 +49,18 @@
 </template>
 
 <script>
-  import Cookie from 'js-cookie'
   import { getOrders } from "@/api/order";
+  import { getUserInfo } from "@/api/user";
   export default {
         name: "order",
     data(){
           return{
-            userId : Cookie.get("user_id"),
+            userId : null,
             open: false,
             trigger: null,
-            orderList: null,
+            orderList: [],
             listSize: 0,
+            listLoading: false,
           }
       },
       created: function () {
@@ -91,21 +92,34 @@
           return status
         },
         toDetail(id){
-          Cookie.set("order_id",id)
             this.$router.push({
               path: '/orderDetail',
-              name: 'OrderDetail',
-              params: {
+              query: {
                 orderId : id
               }
             })
         },
-          fetchData(){
-            getOrders(this.userId).then(res => {
-              const data = res.data;
-              this.orderList = data;
-              this.listSize = data.length;
-            })
+          async fetchData(){
+            this.listLoading = true
+            try {
+              if (!this.userId) {
+                const userRes = await getUserInfo()
+                const info = userRes.data || {}
+                this.userId = info.userId
+                if (!this.userId) {
+                  this.$toast.error('无法获取用户信息，请重新登录')
+                  return
+                }
+              }
+              const res = await getOrders(this.userId)
+              const data = res.data || []
+              this.orderList = data
+              this.listSize = data.length
+            } catch (error) {
+              this.$toast.error(error.toString())
+            } finally {
+              this.listLoading = false
+            }
           },
         test(){
             this.$toast.message("test")

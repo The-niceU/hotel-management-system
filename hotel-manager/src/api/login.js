@@ -1,9 +1,21 @@
 import request from '@/utils/request'
 
 const URL = 'login'
+const jsonRequestConfig = {
+  headers: {
+    'Content-Type': 'application/json'
+  },
+  transformRequest: [function(data) {
+    return JSON.stringify(data)
+  }]
+}
+
+function postJson(config) {
+  return request(Object.assign({}, jsonRequestConfig, config))
+}
 
 export function login(data) {
-  return request({
+  return postJson({
     url: URL + '/admin',
     method: 'post',
     data: data

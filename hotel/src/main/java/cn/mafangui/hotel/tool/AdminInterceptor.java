@@ -16,36 +16,48 @@ import java.io.PrintWriter;
 public class AdminInterceptor implements HandlerInterceptor {
 
     @Override
-    public boolean preHandle(HttpServletRequest request, HttpServletResponse response, Object handler) throws Exception {
-        HttpSession session = request.getSession();
-        if(session.getAttribute("role").equals(Role.ADMIN.getValue())){
+    public boolean preHandle(HttpServletRequest request, HttpServletResponse response, Object handler)
+            throws Exception {
+        HttpSession session = request.getSession(false);
+        Object roleAttr = session == null ? null : session.getAttribute("role");
+        if (Role.ADMIN.getValue().equals(roleAttr)) {
             return true;
-        }else {
-            setCorsMappings(request, response);
-            PrintWriter writer = response.getWriter();
-            AjaxResult result = ResponseTool.failed(MsgType.PERMISSION_DENIED);
-            ObjectMapper mapper = new ObjectMapper();
+        }
+        writeDeniedResponse(request, response, MsgType.PERMISSION_DENIED);
+        return false;
+    }
+
+    private void writeDeniedResponse(HttpServletRequest request, HttpServletResponse response, MsgType msgType)
+            throws Exception {
+        setCorsMappings(request, response);
+        response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
+        response.setCharacterEncoding("UTF-8");
+        response.setContentType("application/json;charset=UTF-8");
+        AjaxResult result = ResponseTool.failed(msgType);
+        ObjectMapper mapper = new ObjectMapper();
+        try (PrintWriter writer = response.getWriter()) {
             writer.write(mapper.writeValueAsString(result));
-            return false;
+            writer.flush();
         }
     }
 
-    private void setCorsMappings(HttpServletRequest request, HttpServletResponse response){
+    private void setCorsMappings(HttpServletRequest request, HttpServletResponse response) {
         String origin = request.getHeader("Origin");
-        response.setHeader("Access-Control-Allow-Origin", origin);
+        response.setHeader("Access-Control-Allow-Origin", origin == null ? "*" : origin);
         response.setHeader("Access-Control-Allow-Methods", "POST, GET, OPTIONS, DELETE");
         response.setHeader("Access-Control-Max-Age", "3600");
-        response.setHeader("Access-Control-Allow-Headers", "x-requested-with,Authorization");
+        response.setHeader("Access-Control-Allow-Headers", "x-requested-with,Authorization,Content-Type");
         response.setHeader("Access-Control-Allow-Credentials", "true");
     }
 
-
     @Override
-    public void postHandle(HttpServletRequest request, HttpServletResponse response, Object handler, ModelAndView modelAndView) throws Exception {
+    public void postHandle(HttpServletRequest request, HttpServletResponse response, Object handler,
+            ModelAndView modelAndView) throws Exception {
 
     }
 
     @Override
-    public void afterCompletion(HttpServletRequest request, HttpServletResponse response, Object handler, Exception ex) throws Exception {
+    public void afterCompletion(HttpServletRequest request, HttpServletResponse response, Object handler, Exception ex)
+            throws Exception {
     }
 }

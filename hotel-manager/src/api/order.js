@@ -1,27 +1,52 @@
 import request from '@/utils/request'
 
 const URL = 'op/order'
+const jsonRequestConfig = {
+  headers: {
+    'Content-Type': 'application/json'
+  },
+  transformRequest: [function(data) {
+    return JSON.stringify(data)
+  }]
+}
+
+function postJson(config) {
+  return request(Object.assign({}, jsonRequestConfig, config))
+}
+
+function toDateOnly(value) {
+  if (!value) {
+    return value
+  }
+  const date = new Date(value)
+  if (isNaN(date.getTime())) {
+    return value
+  }
+  const month = `${date.getMonth() + 1}`.padStart(2, '0')
+  const day = `${date.getDate()}`.padStart(2, '0')
+  return `${date.getFullYear()}-${month}-${day}`
+}
 
 export function addOrder(data) {
-  return request({
+  const payload = Object.assign({}, data, {
+    orderDate: toDateOnly(data.orderDate)
+  })
+  return postJson({
     url: URL + '/add',
     method: 'post',
-    data: data
+    data: payload
   })
 }
 
-export function delOrder(data) {
+export function delOrder(orderId) {
   return request({
-    url: URL + '/delete',
-    method: 'post',
-    data: {
-      orderId: data
-    }
+    url: `${URL}/${orderId}`,
+    method: 'delete'
   })
 }
 
 export function cancelOrder(id) {
-  return request({
+  return postJson({
     url: URL + '/cancel',
     method: 'post',
     data: {
@@ -31,62 +56,58 @@ export function cancelOrder(id) {
 }
 
 export function updateOrder(data) {
-  return request({
+  const payload = Object.assign({}, data, {
+    orderDate: toDateOnly(data.orderDate)
+  })
+  return postJson({
     url: URL + '/update',
     method: 'post',
-    data: data
+    data: payload
   })
 }
 
 export function payOrder(id) {
-  return request({
+  return postJson({
     url: URL + '/pay',
     method: 'post',
     data: {
-      orderId: id,
+      orderId: id
     }
   })
 }
 
-export function getOrderByUserId(data) {
+export function getOrderByUserId(userId) {
   return request({
-    url: URL + '/user/'+data,
-    method: 'post',
-    data: {
-    }
+    url: `${URL}/user/${userId}`,
+    method: 'get'
   })
 }
 
-export function getOrderByNameAndPhone(data) {
+export function getOrderByNameAndPhone(params) {
   return request({
     url: URL + '/withNameAndPhone',
-    method: 'post',
-    data: data
+    method: 'get',
+    params: params
   })
 }
 
-
-
-export function getOrderById(data) {
+export function getOrderById(orderId) {
   return request({
-    url: URL + '/'+data,
-    method: 'post',
-    data: {
-
-    }
+    url: `${URL}/${orderId}`,
+    method: 'get'
   })
 }
 
 export function getAllOrder() {
   return request({
-    url: URL ,
-    method: 'post',
+    url: URL,
+    method: 'get'
   })
 }
 
 export function getOrderCount() {
   return request({
     url: URL + '/count',
-    method: 'post',
+    method: 'get'
   })
 }

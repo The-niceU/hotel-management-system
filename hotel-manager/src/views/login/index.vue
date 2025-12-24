@@ -110,25 +110,31 @@ export default {
         if (valid) {
           const username = this.loginForm.username.trim()
           this.loading = true
-          login(this.loginForm).then(response => {
-              const res = response;
-            if (res.code === 1000){
-              Cookies.set('admin_name', username)
+          login(this.loginForm)
+            .then(res => {
+              if (res && res.code === 1000 && res.data) {
+                Cookies.set('admin_name', username)
                 Cookies.set('session_id', res.data.sessionId)
                 Cookies.set('admin_id', res.data.userId)
                 Cookies.set('role', res.data.role)
-              this.$router.push({ path: this.redirect || '/' })
-            }
-            else{
-              this.$message.warning("用户名或密码错误！请检查后再试")
-            }
-          }).finally(() => {
-            this.loading = false
-          })
+                this.$message.success('登录成功')
+                this.$router.push({ path: this.redirect || '/' })
+              } else if (res && res.message) {
+                this.$message.warning(res.message)
+              } else {
+                this.$message.warning('用户名或密码错误！请检查后再试')
+              }
+            })
+            .catch(err => {
+              this.$message.error(err && err.message ? err.message : err)
+            })
+            .then(() => {
+              this.loading = false
+            })
         } else {
           console.log('error submit!!')
+          this.loading = false
         }
-        this.loading = false
       })
 
     }

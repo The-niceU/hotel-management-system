@@ -1,6 +1,7 @@
 package cn.mafangui.hotel.service;
 
 import cn.mafangui.hotel.entity.Order;
+import cn.mafangui.hotel.enums.OrderOperationResult;
 
 import java.util.List;
 
@@ -14,13 +15,13 @@ public interface OrderService {
 
     Order selectById(Integer orderId);
 
-    Order selectByNameAndPhone(String name,String phone);
+    Order selectByNameAndPhone(String name, String phone);
 
     int update(Order record);
 
-    int payOrder(int orderId);
+    OrderOperationResult payOrder(int orderId);
 
-    int cancelOrder(int orderId);
+    OrderOperationResult cancelOrder(int orderId);
 
     Integer getOrderCount();
 

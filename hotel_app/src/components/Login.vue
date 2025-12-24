@@ -70,19 +70,25 @@
           };
         },
         login() {
-          userLogin(this.validateForm.username,this.validateForm.password).then(res => {
-            var response = res;
-            if (response.data !== null){
-              Cookies.set('username',this.validateForm.username)
-              Cookies.set('session',response.data.sessionId)
-              Cookies.set('user_id',response.data.userId)
-              this.navigateTo('/')
-            }else if (response.code !== 1000) {
-              this.$toast.error(response.message)
-            }
-          }).catch(err => {
-            console.log(err)
-          })
+          this.btnLoading = true
+          userLogin(this.validateForm.username, this.validateForm.password)
+            .then(res => {
+              if (res && res.code === 1000 && res.data) {
+                Cookies.set('username', this.validateForm.username)
+                Cookies.set('session', res.data.sessionId)
+                Cookies.set('user_id', res.data.userId)
+                this.$toast.success('登录成功')
+                this.navigateTo('/')
+              } else if (res && res.message) {
+                this.$toast.error(res.message)
+              }
+            })
+            .catch(err => {
+              this.$toast.error('登录失败：' + (err && err.message ? err.message : err))
+            })
+            .then(() => {
+              this.btnLoading = false
+            })
         },
       }
     }

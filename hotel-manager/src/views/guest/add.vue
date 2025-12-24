@@ -121,33 +121,36 @@
         this.$refs.form1.validate((valid) => {
           if (valid) {
             this.loading = true
-            addUser(this.form1).then(response => {
-                const res = response;
-              if (res.code===1000) {
-                this.$message({
-                  message: '提交成功！',
-                  type: 'success'
-                })
+            addUser(this.form1)
+              .then(res => {
+                if (res && res.code === 1000) {
+                  this.$message({
+                    message: '提交成功！',
+                    type: 'success'
+                  })
+                  this.onCancel()
+                } else if (res && res.message) {
+                  this.showError(res.message)
+                } else {
+                  this.showError()
+                }
+              })
+              .catch(error => {
+                this.showError(error && error.message ? error.message : null)
+                console.log(error)
+              })
+              .then(() => {
                 this.loading = false
-                setTimeout(this.onCancel(), 20000)
-              } else {
-                this.showError()
-                this.loading = false
-              }
-            }).catch(error => {
-              this.loading = false
-              this.showError()
-              console.log(error)
-            })
+              })
           } else {
             this.loading = false
             return false
           }
         })
       },
-      showError() {
+      showError(message) {
         this.$message({
-          message: '提交失败！',
+          message: message || '提交失败！',
           type: 'error'
         })
       },

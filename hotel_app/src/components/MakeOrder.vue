@@ -109,17 +109,22 @@
                 return
               }
             }
-            // this.form.orderDate = this.form.orderDate.toString()
+            if (!this.form.orderDays || this.form.orderDays <= 0) {
+              this.$toast.warning('请选择正确的入住和离店日期')
+              return
+            }
+            this.loading = true
             addOrder(this.form).then(res => {
-              const re = res;
-              if (re.code === 1000){
-                this.$toast.success(re.message)
+              if (res.code === 1000){
+                this.$toast.success(res.message || '提交成功！')
                 this.$router.push('/order')
               }else {
-                this.$toast.success(re.message)
+                this.$toast.error(res.message || '提交失败！')
               }
             }).catch(err => {
               this.$toast.error(err.toString())
+            }).finally(() => {
+              this.loading = false
             })
         }
       }

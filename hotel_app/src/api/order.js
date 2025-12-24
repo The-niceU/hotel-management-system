@@ -1,86 +1,85 @@
 import request from '@/utils/request'
 
 const URL = 'user/order'
+const jsonRequestConfig = {
+  headers: {
+    'Content-Type': 'application/json'
+  },
+  transformRequest: [function(data) {
+    return JSON.stringify(data)
+  }]
+}
 
+function postJson(config) {
+  return request(Object.assign({}, jsonRequestConfig, config))
+}
 
-export function getOrders(data) {
+function toDateOnly(value) {
+  if (!value) {
+    return value
+  }
+  const date = new Date(value)
+  if (isNaN(date.getTime())) {
+    return value
+  }
+  const month = `${date.getMonth() + 1}`.padStart(2, '0')
+  const day = `${date.getDate()}`.padStart(2, '0')
+  return `${date.getFullYear()}-${month}-${day}`
+}
+
+export function getOrders(userId) {
   return request({
-    url: URL + '',
-    method: 'post',
-    data: {
-      userId: data
+    url: URL,
+    method: 'get',
+    params: {
+      userId
     }
   })
 }
 
 export function addOrder(data) {
-  return request({
+  const payload = Object.assign({}, data, {
+    orderDate: toDateOnly(data.orderDate)
+  })
+  return postJson({
     url: URL + '/add',
     method: 'post',
-    data: data
+    data: payload
   })
 }
 
-export function delOrder(data) {
+export function delOrder(orderId) {
   return request({
-    url: URL + '/delete',
-    method: 'post',
-    data: {
-      typeId: data
-    }
+    url: `${URL}/${orderId}`,
+    method: 'delete'
   })
 }
 
-export function cancelOrder(id) {
-  return request({
+export function cancelOrder(orderId) {
+  return postJson({
     url: URL + '/cancel',
     method: 'post',
     data: {
-      orderId: id
+      orderId
     }
   })
 }
 
-export function updateOrder(id,status) {
-  return request({
-    url: URL + '/update',
-    method: 'post',
-    data: {
-      orderId: id,
-      orderStatus: status
-    }
-  })
-}
-
-export function payOrder(id,username,password) {
-  return request({
+export function payOrder(orderId, username, password) {
+  return postJson({
     url: URL + '/pay',
     method: 'post',
     data: {
-      orderId: id,
-      username:username,
-      password: password
+      orderId,
+      username,
+      password
     }
   })
 }
 
-export function getOrderByUserId(data) {
+export function getOrderById(orderId) {
   return request({
-    url: URL + '/userOrder',
-    method: 'post',
-    data: {
-      userId: data
-    }
-  })
-}
-
-
-export function getOrderById(data) {
-  return request({
-    url: URL + '/'+data,
-    method: 'post',
-    data: {
-      // orderId: data
-    }
+    url: `${URL}/${orderId}`,
+    method: 'get'
   })
 }

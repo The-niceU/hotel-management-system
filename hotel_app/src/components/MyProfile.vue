@@ -75,9 +75,13 @@
       methods:{
           fetchData(){
             getUserInfo().then(res => {
-              this.userInfo = res.data;
+              if (res && res.code === 1000 && res.data) {
+                this.userInfo = res.data;
+              } else if (res && res.message) {
+                this.$toast.warning(res.message)
+              }
             }).catch(err => {
-              this.$toast.error(err)
+              this.$toast.error(err && err.message ? err.message : err)
             })
           }
       },

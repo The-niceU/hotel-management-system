@@ -52,14 +52,39 @@ public class WorkerServiceImpl implements WorkerService {
     }
 
     @Override
-    public Worker login(String username, String password,String role) {
-        String pass = MD5Utils.MD5Encode(password);
-        return workerMapper.selectByUsernameAndPassword(username,pass,role);
+    public Worker login(String username, String password, String role) {
+        Worker worker = workerMapper.selectByUsername(username);
+        if (worker == null) {
+            return null;
+        }
+        if (role != null && !role.equalsIgnoreCase(worker.getRole())) {
+            return null;
+        }
+        return verifyAndUpgradePassword(worker, password);
     }
 
     @Override
     public Worker login(String username, String password) {
-        String pass = MD5Utils.MD5Encode(password);
-        return workerMapper.selectByUsernamePassword(username,pass);
+        Worker worker = workerMapper.selectByUsername(username);
+        if (worker == null) {
+            return null;
+        }
+        return verifyAndUpgradePassword(worker, password);
+    }
+
+    private Worker verifyAndUpgradePassword(Worker worker, String rawPassword) {
+        String encodedPassword = MD5Utils.MD5Encode(rawPassword);
+        if (encodedPassword.equalsIgnoreCase(worker.getPassword())) {
+            return worker;
+        }
+        if (rawPassword.equals(worker.getPassword())) {
+            Worker update = new Worker();
+            update.setWorkerId(worker.getWorkerId());
+            update.setPassword(encodedPassword);
+            workerMapper.updateByPrimaryKeySelective(update);
+            worker.setPassword(encodedPassword);
+            return worker;
+        }
+        return null;
     }
 }

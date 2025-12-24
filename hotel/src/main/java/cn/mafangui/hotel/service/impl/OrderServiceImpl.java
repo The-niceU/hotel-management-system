@@ -1,12 +1,9 @@
 package cn.mafangui.hotel.service.impl;
 
 import cn.mafangui.hotel.entity.Order;
-import cn.mafangui.hotel.entity.Room;
-import cn.mafangui.hotel.entity.RoomType;
 import cn.mafangui.hotel.enums.OrderStatus;
+import cn.mafangui.hotel.enums.OrderOperationResult;
 import cn.mafangui.hotel.mapper.OrderMapper;
-import cn.mafangui.hotel.mapper.RoomMapper;
-import cn.mafangui.hotel.mapper.RoomTypeMapper;
 import cn.mafangui.hotel.service.OrderService;
 import cn.mafangui.hotel.service.RoomService;
 import cn.mafangui.hotel.service.RoomTypeService;
@@ -63,47 +60,60 @@ public class OrderServiceImpl implements OrderService {
 
     /**
      * 订单支付
-     *  1.更改订单状态 -3
-     *  2.修改房型余量 -2
-     *  3.修改房间状态 -1
+     * 1.更改订单状态 -3
+     * 2.修改房型余量 -2
+     * 3.修改房间状态 -1
+     * 
      * @param orderId
      * @return
      */
     @Override
-    @Transactional
-    public int payOrder(int orderId) {
+    @Transactional(rollbackFor = Exception.class)
+    public OrderOperationResult payOrder(int orderId) {
         Order order = orderMapper.selectByPrimaryKey(orderId);
-        if (order == null | order.getOrderStatus() != OrderStatus.UNPAID.getCode()) {
-            return -3;
+        if (order == null) {
+            return OrderOperationResult.ORDER_NOT_FOUND;
         }
-        if (roomTypeService.updateRest(order.getRoomTypeId(),-1) != 1){
+        if (order.getOrderStatus() != OrderStatus.UNPAID.getCode()) {
+            return OrderOperationResult.INVALID_STATUS;
+        }
+        if (roomTypeService.updateRest(order.getRoomTypeId(), -1) != 1) {
             TransactionAspectSupport.currentTransactionStatus().setRollbackOnly();
-            return -2;
+            return OrderOperationResult.ROOMTYPE_UPDATE_FAILED;
         }
         order.setOrderStatus(OrderStatus.PAID.getCode());
-        if (orderMapper.updateByPrimaryKeySelective(order) != 1){
+        if (orderMapper.updateByPrimaryKeySelective(order) != 1) {
             TransactionAspectSupport.currentTransactionStatus().setRollbackOnly();
-            return 0;
+            return OrderOperationResult.ORDER_UPDATE_FAILED;
         }
-        return 1;
+        return OrderOperationResult.SUCCESS;
     }
 
     /**
      * 取消订单
      * 1. 更改订单状态 -3
      * 2. 修改房型余量（已付款）-2
+     * 
      * @param orderId
      * @return
      */
     @Override
-    public int cancelOrder(int orderId) {
+    @Transactional(rollbackFor = Exception.class)
+    public OrderOperationResult cancelOrder(int orderId) {
         Order order = orderMapper.selectByPrimaryKey(orderId);
-        if (order == null ) return -3;
-        order.setOrderStatus(OrderStatus.WAS_CANCELED.getCode());
-        if (roomTypeService.updateRest(order.getRoomTypeId(),1) != 1){
-            return -2;
+        if (order == null) {
+            return OrderOperationResult.ORDER_NOT_FOUND;
         }
-        return orderMapper.updateByPrimaryKeySelective(order);
+        order.setOrderStatus(OrderStatus.WAS_CANCELED.getCode());
+        if (roomTypeService.updateRest(order.getRoomTypeId(), 1) != 1) {
+            TransactionAspectSupport.currentTransactionStatus().setRollbackOnly();
+            return OrderOperationResult.ROOMTYPE_UPDATE_FAILED;
+        }
+        if (orderMapper.updateByPrimaryKeySelective(order) != 1) {
+            TransactionAspectSupport.currentTransactionStatus().setRollbackOnly();
+            return OrderOperationResult.ORDER_UPDATE_FAILED;
+        }
+        return OrderOperationResult.SUCCESS;
     }
 
     @Override
@@ -125,6 +135,5 @@ public class OrderServiceImpl implements OrderService {
     public List<Order> UsersAllOrders(int userId) {
         return orderMapper.selectAllByUser(userId, OrderStatus.WAS_DELETED.getCode());
     }
-
 
 }

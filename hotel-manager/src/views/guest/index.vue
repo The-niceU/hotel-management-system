@@ -106,7 +106,7 @@
         return{
           currentPage: 1,
           pagesize: 10,
-          list: null,
+          list: [],
           visible2: false,
           loading: null,
           listLoading: false,
@@ -124,14 +124,28 @@
           this.currentPage = val;
         },
         fetchData(){
-          getAllUser().then(res => {
-            this.list = res.data;
-          }).catch(err => {
-            this.$notify.error({
-              title: '错误',
-              message: err.toString()
-            });
-          })
+          this.listLoading = true
+          getAllUser()
+            .then(res => {
+              if (res && res.code === 1000) {
+                this.list = res.data || []
+              } else {
+                this.list = []
+                const msg = res && res.message ? res.message : '获取客户列表失败'
+                this.$notify.warning({
+                  title: '提示',
+                  message: msg
+                })
+              }
+            }).catch(err => {
+              this.list = []
+              this.$notify.error({
+                title: '错误',
+                message: err && err.message ? err.message : err.toString()
+              });
+            }).then(() => {
+              this.listLoading = false
+            })
         },
         navigateTo(val){
           this.$router.push("/user/"+val)
@@ -141,23 +155,30 @@
         handleDel(row){
           row.visible2 = false
           row.loading = true
-          delUser(row.userId).then(response => {
-              const res = response;
-            if (res.code === 1000) {
-              this.list = null
+          delUser(row.userId)
+            .then(res => {
+              if (res && res.code === 1000) {
+                this.$message({
+                  message: '删除成功！',
+                  type: 'success'
+                })
+                this.fetchData()
+              } else {
+                this.$message({
+                  message: res && res.message ? res.message : '删除失败！',
+                  type: 'error'
+                })
+              }
+            })
+            .catch(err => {
               this.$message({
-                message: '删除成功！',
-                type: 'success'
-              })
-            } else {
-              this.$message({
-                message: '删除失败！',
+                message: err && err.message ? err.message : '删除失败！',
                 type: 'error'
               })
-            }
-          })
-          row.loading = false
-          this.fetchData()
+            })
+            .then(() => {
+              row.loading = false
+            })
         },
         handleEdit(index,row){
           this.$router.push({
@@ -177,7 +198,7 @@
             this.$refs.multipleTable.clearSelection()
           }
         },
-        handleSelectionChange(){
+        handleSelectionChange(val){
           this.multipleSelection = val
         },
       },

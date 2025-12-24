@@ -24,6 +24,16 @@
       </el-form-item>
       <el-form-item
         :rules="[
+          { required: true, message: '不能为空'},
+          { type: 'number', message: '必须为数字值'}
+        ]"
+        label="用户编号"
+        prop="userId"
+      >
+        <el-input-number v-model="form1.userId" :min="1" :controls="false" placeholder="请输入用户编号" />
+      </el-form-item>
+      <el-form-item
+        :rules="[
           { required: true, message: '不能为空'}
         ]"
         label="房间类型">
@@ -101,7 +111,7 @@
             orderTypeId:null,
             orderType: null,
             roomTypeId: null,
-            userId:0,
+            userId:null,
             name: '',
             phone:'',
             orderDate: null,
@@ -149,37 +159,55 @@
 
         },
         calcDays(){
+          if (!this.orderDateRange || this.orderDateRange.length < 2) {
+            this.form1.orderDays = 0
+            this.form1.orderDate = null
+            return
+          }
           this.form1.orderDate = this.orderDateRange[0]
-            var days = this.orderDateRange[1].getTime() - this.orderDateRange[0].getTime();
-          this.form1.orderDays = days / (24*60*60*1000);
+          var start = this.orderDateRange[0].getTime();
+          var end = this.orderDateRange[1].getTime();
+          var days = (end - start) / (24*60*60*1000);
+          this.form1.orderDays = Math.max(1, Math.round(days))
+          if (this.form1.roomTypeId) {
+            this.idToType(this.form1.roomTypeId, null)
+          }
         },
         onSubmit() {
           this.$refs.form1.validate((valid) => {
             if (valid) {
+              if (!this.orderDateRange || this.orderDateRange.length < 2) {
+                this.$message.warning('请选择入住和离店日期')
+                return
+              }
               this.loading = true
               addOrder(this.form1).then(response => {
                   const res = response;
                 if(res.code === 1000){
                   this.$message({
-                    message: '提交成功！',
+                    message: res.message || '提交成功！',
                     type: 'success'
                   })
-                  this.loading = false
-                  setTimeout(this.onCancel(), 20000)
+                  this.onCancel()
                 }else {
-                  this.showError()
-                  this.loading = false
+                  this.showError(res.message)
                 }
+              }).catch(error => {
+                this.$message({
+                  message: error.toString(),
+                  type: 'error'
+                })
+              }).finally(() => {
+                this.loading = false
               })
             } else {
-              this.loading = false
               return false
             }
           })
         },
-        showError() {
+        showError(message) {
           this.$message({
-            message: '提交失败！',
+            message: message || '提交失败！',
             type: 'error'
           })
         },
