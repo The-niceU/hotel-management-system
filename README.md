@@ -142,7 +142,7 @@ npm run dev
 
 ## 📄 许可证
 
-[LICENSE](MIT)
+- [LICENSE](MIT)
 
 ## 👤 维护者
 
