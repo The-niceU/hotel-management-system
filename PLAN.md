@@ -1,121 +1,122 @@
-# Project Optimization & Test Plan
+# 项目优化与测试计划
 
-## Scope Overview
+## 范围概览
 
-- **Backend (`hotel/`)**: Spring Boot 2.0.5 + MyBatis + MySQL. Focus on auth, reservations, room/worker management, operational stability.
-- **Frontend – Customer (`hotel_app/`)**: Vue 2 SPA for guests (login, register, browse rooms, book, view orders/profile).
-- **Frontend – Admin (`hotel-manager/`)**: Vue 2 dashboard for staff/admins (orders, rooms, check-ins, workers, analytics).
-- **Shared Infrastructure**: MySQL 5.7 schema/data scripts, npm/node toolchains, Maven build, CI (manual for now).
+- **后端（`backend/api-server/`）**：Spring Boot 2.0.5 + MyBatis + MySQL。重点关注认证、预订、房间/员工管理与运行稳定性。
+- **前端（用户端，`frontend/web-app/`）**：面向住客的 Vue 2 单页应用（登录、注册、浏览房间、预订、订单/个人中心）。
+- **前端（管理端，`admin/admin-web/`）**：面向员工/管理员的 Vue 2 控制台（订单、房间、入住、员工、统计）。
+- **共享基础设施**：MySQL 5.7 数据结构/初始化脚本、npm/node 工具链、Maven 构建、CI（当前以手动为主）。
 
-## Phase 1: Backend Assessment & Hardening
+## 阶段 1：后端评估与加固
 
-1. **Code Quality & Structure**
-   - Review controllers/services for duplicate logic, missing validation, inconsistent error handling.
-   - Enforce DTO/request validation (e.g., Hibernate Validator) instead of raw String parameters.
-   - Centralize response/error codes.
-2. **Security**
-   - Strengthen password policy (salted hashing, password length checks) within current Spring Boot stack.
-   - Sanitize inputs, ensure parameter binding avoids SQL injection (MyBatis already prepared but review custom SQL).
-   - Add rate limiting / login attempt tracking（保留现有框架，只新增逻辑层实现）。
-3. **Stability & Performance**
-   - Audit database access for N+1 queries, add pagination/default limits.
-   - Cache read-mostly configs (hotel info, room types) via Spring Cache.
-   - Improve logging (structured logs, correlation IDs, WARN/ERROR coverage).
-4. **Testing**
-   - Add unit tests for services (mock mappers) covering auth, booking, room operations.
-   - Add integration tests (Spring Boot Test + H2 or MySQL test schema) for key flows.
-   - Provide Postman/HTTP scenario collection for manual regression.
-5. **Tooling**
-   - 在现有 Maven 版本基础上接入代码规范（Spotless/Checkstyle）与 Jacoco 覆盖率，而不是升级框架。
+1. **代码质量与结构**
+   - 审查 Controller/Service 是否存在重复逻辑、参数校验缺失、错误处理不一致等问题。
+   - 使用 DTO 与请求校验（如 Hibernate Validator），替代裸 `String` 参数。
+   - 统一响应码与错误码定义。
+2. **安全性**
+   - 在现有 Spring Boot 栈内强化密码策略（加盐哈希、长度与复杂度约束）。
+   - 做输入清洗，确保参数绑定规避 SQL 注入（MyBatis 已有基础能力，但需复核自定义 SQL）。
+   - 增加限流与登录失败追踪（保持现有框架，仅新增逻辑层实现）。
+3. **稳定性与性能**
+   - 审计数据库访问中的 N+1 查询问题，补充分页与默认查询上限。
+   - 对读多写少配置（酒店信息、房型等）引入 Spring Cache。
+   - 完善日志（结构化字段、关联 ID、WARN/ERROR 覆盖率）。
+4. **测试**
+   - 为核心 Service 增加单元测试（mock mapper），覆盖认证、预订、房间操作。
+   - 为关键流程增加集成测试（Spring Boot Test + H2 或 MySQL 测试库）。
+   - 提供 Postman/HTTP 场景集合用于手工回归。
+5. **工具链**
+   - 在现有 Maven 版本下接入代码规范（Spotless/Checkstyle）与 Jacoco 覆盖率，而非升级基础框架。
 
-### Current Backend Findings (2025-12-24)
+### 当前后端发现（2025-12-24）
 
-- **Build & Dependencies**: 保持 Spring Boot 2.0.5、MyBatis 1.3.2、mysql-connector 8.0.11 不变，但缺乏依赖管理/代码质量插件配置。
-- **Configuration Gaps**: `mybatis.type-aliases-package` uses `classpath*` (should be package path), no Hikari/DataSource tuning, missing logging level control and profile separation, credentials hard-coded.
-- **Security & Session Handling**: Passwords hashed with unsalted MD5; interceptors (e.g., `AdminInterceptor`) assume `session.getAttribute("role")` non-null leading to NPE and lack of graceful auth failures. No CSRF/token strategy, no login throttling.
-- **Controller Surface**: Endpoints (e.g., `LoginController`, `OpOrderController`) bind raw query params, lack `@RequestBody` DTOs, validation annotations, or consistent error semantics; responses expose internal status codes (`-3/-2`).
-- **Business Logic & Transactions**: `OrderServiceImpl.payOrder` uses bitwise `|` for null check, manually manages rollback, and mixes numeric error codes; cancellation/restock logic not wrapped in transactions; no pagination/filtering on list endpoints.
-- **Testing Coverage**: Repository contains only starter dependency; no unit/integration tests, fixtures, or automation to guard regressions during refactors.
+- **构建与依赖**：保持 Spring Boot 2.0.5、MyBatis 1.3.2、mysql-connector 8.0.11 不变，但缺少依赖治理与代码质量插件配置。
+- **配置缺口**：`mybatis.type-aliases-package` 使用 `classpath*`（应为包路径）；缺乏 Hikari/DataSource 调优；日志级别与 profile 分离不足；凭据硬编码。
+- **安全与会话处理**：密码采用无盐 MD5；拦截器（如 `AdminInterceptor`）假设 `session.getAttribute("role")` 非空，可能触发 NPE 且缺少友好鉴权失败处理；缺少 CSRF/token 策略与登录限流。
+- **控制器接口面**：端点（如 `LoginController`、`OpOrderController`）多为原始查询参数绑定，缺少 `@RequestBody` DTO、校验注解与统一错误语义；响应暴露内部状态码（`-3/-2`）。
+- **业务逻辑与事务**：`OrderServiceImpl.payOrder` 使用按位 `|` 进行空判断、手工回滚且错误码语义混杂；取消与回补库存逻辑未统一纳入事务；列表接口缺少分页与过滤。
+- **测试覆盖**：仓库仅有基础测试依赖，缺少单元/集成测试、测试数据夹具与自动化回归保护。
 
-> These findings define the backlog for Phase 1: 在不升级框架的前提下引入校验/安全层、重构服务逻辑，并建立自动化测试，然后再进入前端优化。
+> 上述发现定义了阶段 1 的待办：在不升级框架的前提下补齐校验与安全层、重构服务逻辑、建立自动化测试，再进入前端优化。
 
-## Phase 2: Frontend `hotel_app` Review & Refresh
+## 阶段 2：`frontend/web-app` 评审与优化
 
-1. **Build/Dependencies**
-   - 保持当前 Vue2 + webpack 配置，仅修复 `node-sass` 兼容问题（必要时通过本地二进制或 postcss 方案），并补充 eslint/prettier 设置。
-2. **Architecture**
-   - Normalize API layer (`src/api/*.js`), ensure consistent error handling/toast notifications.
-   - Introduce Vuex (if not already) or at least centralized auth/token/session store.
-   - Add route guards for auth-required pages.
-3. **UI/UX Modernization**
-   - Establish updated design system (color palette, typography, spacing).
-   - Redesign key pages (Landing, Login/Register, Room list/detail, Booking flow, Profile) with responsive layout, purposeful typography per instructions (avoid default stacks, customize fonts, gradients/backgrounds, animations).
-   - Add loading states, empty states, validation feedback.
-4. **Testing**
-   - Component/unit tests via Jest + Vue Test Utils for critical components.
-   - Cypress or Playwright smoke flows (login + booking + order view).
+1. **构建与依赖**
+   - 保持现有 Vue2 + webpack 方案，优先修复 `node-sass` 兼容问题（必要时使用本地二进制或 postcss 方案），并补齐 eslint/prettier 配置。
+2. **架构**
+   - 规范 API 层（`src/api/*.js`），统一错误处理与 toast 提示策略。
+   - 引入 Vuex（若未使用）或至少建立集中式 auth/token/session 状态存储。
+   - 为受保护页面补齐路由守卫。
+3. **UI/UX 现代化**
+   - 建立更新的设计系统（色板、字体、间距）。
+   - 重设计关键页面（首页、登录/注册、房间列表/详情、预订流程、个人中心），确保响应式布局与一致视觉风格。
+   - 补齐加载态、空态、表单校验反馈。
+4. **测试**
+   - 用 Jest + Vue Test Utils 为关键组件补单测。
+   - 用 Cypress 或 Playwright 建立冒烟流程（登录 + 预订 + 查看订单）。
 
-### Current `hotel_app` Findings (2025-12-24)
+### 当前 `frontend/web-app` 发现（2025-12-24）
 
-- **Build/Dependency Pain**: Webpack 3 脚手架依赖老旧且没有锁定版本；`axios` 被放在 devDependencies，导致生产安装缺失；无 lint/format/test 脚本。
-- **API 层缺陷**: `utils/request.js` 将所有非 `code===1000` 的返回视为错误并 toast，但后端成功码本身就是 1000；网络错误直接强跳 `/404` 体验差；没有统一的 loading/重试策略。
-- **认证状态**: 仅凭 Cookies (`user_id`,`username`) 判断登录，既无过期策略也无服务端校验；App 组件和 `main.js` 均直接读取 cookie，缺少 Vuex/全局 store，且 `App.vue` 未导入 `js-cookie`，存在运行错误风险。
-- **路由/页面**: 路由守卫硬编码在 `router/index.js`，没有根据角色动态控制；页面间复用极少，`MyProfile`、`Order` 等直接在组件内部发请求并处理格式，缺乏数据层抽象。
-- **UI/UX**: 大量默认 Muse UI 样式，登录/主页缺少更现代的版式与响应式处理；没有全局主题/色彩规范，也缺 loading/empty states。
-- **测试与可维护性**: 无单元或端到端测试，`package.json` 无相关脚本；缺乏 README/运行说明。
+- **构建/依赖痛点**：Webpack 3 脚手架偏旧且版本未锁定；`axios` 放在 devDependencies，导致生产安装缺失；缺少 lint/format/test 脚本。
+- **API 层缺陷**：`utils/request.js` 对非 `code===1000` 统一判错并 toast，而后端成功码即 1000；网络错误直接跳 `/404`，体验较差；缺少统一 loading/重试策略。
+- **认证状态**：仅依赖 Cookies（`user_id`、`username`）判断登录，无过期与服务端二次校验；`App` 与 `main.js` 均直接读 cookie，缺少全局状态管理；`App.vue` 未导入 `js-cookie`，存在运行风险。
+- **路由/页面组织**：路由守卫硬编码于 `router/index.js`，缺少按角色动态控制；`MyProfile`、`Order` 等页面在组件内直接请求并格式化数据，数据层抽象不足。
+- **UI/UX**：大量默认 Muse UI 样式，登录与主页现代感不足，响应式适配不完整；缺少全局主题规范与 loading/empty states。
+- **测试与可维护性**：缺少单元与 E2E 测试；`package.json` 缺少相关脚本；README 运行说明不完整。
 
-> 以上问题构成 Phase 2 的具体任务清单：重整依赖脚本、重构 request/认证逻辑、补充状态管理与校验、重新设计关键页面并配套测试。
+> 上述问题构成阶段 2 的具体任务：重整依赖脚本、重构 request/认证逻辑、补状态管理与校验、重做关键页面并配套测试。
 
-## Phase 3: Frontend `hotel-manager` Review & Refresh
+## 阶段 3：`admin/admin-web` 评审与优化
 
-1. **Build/Dependencies**
-   - 同样沿用现有依赖版本，只在配置层面优化打包速度与 SVG/Icon 管线（例如更好地拆分 webpack loader 配置）。
-2. **Architecture**
-   - Strengthen store modules (permissions, dynamic routes) and API abstraction.
-   - Improve form validation & optimistic updates for admin actions (room edits, order status changes).
-3. **UI/UX Enhancements**
-   - Introduce more intentional layout (dashboard cards, analytics, tables with clear hierarchy).
-   - Add consistent color scheme distinct from customer app; purposeful typography; background treatments, transitions for panel loads.
-4. **Testing**
-   - Jest/component tests for shared widgets (Breadcrumb, Hamburger, Room forms).
-   - E2E flows for typical admin tasks (login, approve order, edit room, register worker).
+1. **构建与依赖**
+   - 延续当前依赖版本，在配置层面优化打包速度与 SVG/Icon 管线（如拆分 webpack loader 配置）。
+2. **架构**
+   - 强化 store 模块（权限、动态路由）与 API 抽象层。
+   - 优化管理动作（房间编辑、订单状态变更）的表单校验与乐观更新体验。
+3. **UI/UX 提升**
+   - 引入更有层次的布局（仪表盘卡片、统计、表格信息层级）。
+   - 与用户端形成区分明确且一致的配色与字体体系，并补充动效反馈。
+4. **测试**
+   - 为共享组件（Breadcrumb、Hamburger、房间表单）补充 Jest/组件测试。
+   - 为典型管理流程补 E2E（登录、审核订单、编辑房间、登记员工）。
 
-### Current `hotel-manager` Findings (2025-12-24)
+### 当前 `admin/admin-web` 发现（2025-12-24）
 
-- **Build/Dependency Concerns**: 基于 vue-admin-template 的 webpack4 配置仍依赖 `node-sass@4.x` 与旧版 Element UI；虽可用但安装过程对 Node 版本极度敏感，需要提供明确的环境约束与本地二进制方案。
-- **权限与状态**: 路由守卫仅检查 cookie `admin_id`，Vuex `user` 模块未真正驱动菜单/路由；没有基于角色的细粒度控制，也缺乏 token/会话续期策略。
-- **API & 错误处理**: `utils/request.js` 与前台类似，所有 `code!=1000` 都 toast，但后端返回值语义混乱（1001/1100 等）；网络错误强制跳首页，无法区分非致命报错；缺少全局 loading / 操作提示。
-- **界面体验**: 继承 Element 默认风格，导航/侧栏与内容区域缺少清晰层级；表格密集、过滤/搜索缺失；无响应式布局，仪表盘/房型页面在小屏体验差；缺动画/反馈。
-- **代码组织**: 大量视图直接在组件中处理 API 数据，缺乏 service 层封装；表单验证重复，`add/edit` 页面拷贝多份；SVG/icon pipeline 在开发模式下体积大，需梳理。
-- **测试/文档**: 虽有 `npm run lint`，但没有单元或端到端测试；README 缺运行/部署说明，导致新成员难以上手。
+- **构建/依赖关注点**：基于 vue-admin-template 的 webpack4 配置仍依赖 `node-sass@4.x` 与旧版 Element UI；虽可运行，但对 Node 版本敏感，需要明确环境约束与本地二进制方案。
+- **权限与状态**：路由守卫仅检查 cookie `admin_id`；Vuex `user` 模块未真正驱动菜单/路由；缺少基于角色的细粒度权限与 token/会话续期策略。
+- **API 与错误处理**：`utils/request.js` 与用户端类似，`code!=1000` 全部 toast，但后端返回语义混杂（1001/1100 等）；网络错误强制跳首页，缺少非致命错误分级处理与全局 loading 提示。
+- **界面体验**：沿用 Element 默认风格，导航/侧栏与内容层级不清；表格密集且过滤/搜索能力不足；小屏适配较弱，缺少动画与交互反馈。
+- **代码组织**：大量页面在组件内直接处理 API 数据，缺少 service 层；表单验证逻辑重复，`add/edit` 页面存在复制粘贴；开发模式下 SVG/icon 体积偏大。
+- **测试/文档**：虽有 `npm run lint`，但缺少单元和 E2E 测试；README 缺运行与部署说明，新成员上手成本高。
 
-> Phase 3 需要在不升级框架的前提下，完善权限/状态、统一请求反馈、重做关键管理界面视觉，并补齐测试与文档，使后台操作体验和可靠性提升。
+> 阶段 3 目标是在不升级框架前提下，完善权限状态、统一请求反馈、重塑关键管理页面视觉，并补齐测试与文档，提升后台操作体验和可靠性。
 
-## Phase 4: Integrated Testing & Verification
+## 阶段 4：联调测试与验收
 
-1. **Environment Setup**
-   - Document required Node, npm, Java, MySQL versions.
-   - Provide scripts for seeding DB and launching services locally.
-2. **Automated Pipeline**
-   - Backend: `mvn test` + coverage; Frontends: `npm run test`, `npm run build`.
-   - Optional GitHub Actions workflow running all three packages.
-3. **Manual Regression Checklist**
-   - Guest flows: register → login → browse rooms → book → view order → cancel.
-   - Admin flows: login → dashboard stats → manage rooms/types → approve/check-in/out → worker/user management.
-   - Edge cases: invalid logins, duplicate registrations, network errors, device responsiveness.
+1. **环境准备**
+   - 明确 Node、npm、Java、MySQL 版本要求。
+   - 提供数据库初始化与本地多服务启动脚本。
+2. **自动化流水线**
+   - 后端：`mvn test` + 覆盖率。
+   - 前端：`npm run test`、`npm run build`。
+   - 可选：配置 GitHub Actions，覆盖三个子项目。
+3. **手工回归清单**
+   - 用户流程：注册 → 登录 → 浏览房间 → 预订 → 查看订单 → 取消。
+   - 管理流程：登录 → 查看仪表盘 → 管理房型/房间 → 办理入住/退房 → 员工/用户管理。
+   - 边界场景：错误登录、重复注册、网络异常、不同设备尺寸适配。
 
-## Phase 5: Documentation & Handoff
+## 阶段 5：文档完善与交接
 
-- Update READMEs for each package (setup, scripts, env vars, deployment instructions).
-- Summarize optimizations, new UI guidelines, testing coverage.
-- Note known limitations and future enhancements (e.g., role-based access refinement, analytics, notification system).
+- 更新各子项目 README（环境搭建、脚本、环境变量、部署说明）。
+- 汇总优化成果（UI 规范、测试覆盖、性能与稳定性改进）。
+- 标注已知限制与后续规划（如更细粒度 RBAC、分析看板、通知系统）。
 
-## Execution Order Summary
+## 执行顺序总览
 
-1. Backend refactors/tests (Phase 1).
-2. Customer frontend modernization/tests (Phase 2).
-3. Admin frontend modernization/tests (Phase 3).
-4. Integrated regression + CI setup (Phase 4).
-5. Documentation & handoff (Phase 5).
+1. 后端重构与测试（阶段 1）。
+2. 用户端前端现代化与测试（阶段 2）。
+3. 管理端前端现代化与测试（阶段 3）。
+4. 联调回归与 CI 建设（阶段 4）。
+5. 文档收尾与交接（阶段 5）。
 
-This phased plan ensures we touch every part of the stack methodically while keeping quality under control. Execute each phase only after previous one passes agreed acceptance tests.
+该分阶段计划可确保按模块有序推进，并在每一阶段通过验收后再进入下一阶段，从而将质量和风险控制在可管理范围内。
